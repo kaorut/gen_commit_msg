@@ -1,4 +1,6 @@
+import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -9,6 +11,7 @@ def main() -> int:
 	base_dir = Path(__file__).resolve().parent
 
 	try:
+		options = parse_arguments(sys.argv[1:])
 		config = load_api_config(base_dir)
 		diff_text = get_git_diff()
 		if not diff_text.strip():
@@ -21,6 +24,7 @@ def main() -> int:
 			api_key=config["api_key"],
 			diff_text=diff_text,
 		)
+		message = append_issue_reference_to_subject(message, options.issue_reference)
 	except FileNotFoundError:
 		sys.stderr.write("Configuration file not found: .secret/api.json\n")
 		return 1
@@ -44,6 +48,46 @@ def load_api_config(base_dir: Path) -> dict:
 		raise ValueError(f"Missing keys in {config_path}: {missing}")
 
 	return config
+
+
+def parse_arguments(args: list[str]) -> argparse.Namespace:
+	parser = argparse.ArgumentParser(
+		prog="gen_commit_msg.py",
+		description="Generate a commit message from git diff using AI.",
+	)
+	parser.add_argument(
+		"issue_reference",
+		nargs="?",
+		default="",
+		help="Optional issue reference like '#42' or 'otherproject#4242'.",
+	)
+
+	parsed_args = parser.parse_args(args)
+	parsed_args.issue_reference = validate_issue_reference(parsed_args.issue_reference)
+	return parsed_args
+
+
+def validate_issue_reference(issue_reference: str) -> str:
+	value = issue_reference.strip()
+	if not value:
+		return ""
+
+	if not re.fullmatch(r"(?:[A-Za-z0-9_.-]+)?#\d+", value):
+		raise ValueError("Issue reference must be like '#42' or 'otherproject#4242'")
+
+	return value
+
+
+def append_issue_reference_to_subject(message: str, issue_reference: str) -> str:
+	if not issue_reference:
+		return message
+
+	lines = message.splitlines()
+	if not lines:
+		return message
+
+	lines[0] = f"{lines[0].rstrip()} {issue_reference}".strip()
+	return "\n".join(lines)
 
 
 def get_git_diff() -> str:
