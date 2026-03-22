@@ -8,7 +8,12 @@ from modules.ai_client import generate_commit_message
 from modules.cli import parse_arguments
 from modules.config import load_api_config
 from modules.git_operations import get_git_diff
-from modules.message_processor import append_issue_reference_to_subject, strip_surrounding_code_fence, normalize_conventional_commit_message
+from modules.message_processor import (
+	append_issue_reference_to_subject,
+	strip_surrounding_code_fence,
+	remove_all_code_fences,
+	normalize_conventional_commit_message,
+)
 
 
 def main() -> int:
@@ -36,9 +41,10 @@ def main() -> int:
 			diff_text=diff_text,
 		)
 		
-		# Post-process the message
-		message = strip_surrounding_code_fence(message)
-		message = normalize_conventional_commit_message(message)
+		# Post-process the message (multiple passes for robustness)
+		message = strip_surrounding_code_fence(message)  # Remove outer fences
+		message = remove_all_code_fences(message)  # Remove all embedded fences
+		message = normalize_conventional_commit_message(message)  # Final normalization
 		message = append_issue_reference_to_subject(message, options.issue_reference)
 		
 	except FileNotFoundError:
