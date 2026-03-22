@@ -1,0 +1,4 @@
+Generate a Git commit message from this git diff.
+Follow Conventional Commits and keep it clear and concise.
+
+{{DIFF_TEXT}}

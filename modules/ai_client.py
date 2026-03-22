@@ -1,8 +1,27 @@
 """AI API client module for generating commit messages."""
 
+from pathlib import Path
 from typing import Any
 
 from openai import OpenAI
+
+
+PROMPTS_DIR = Path(__file__).resolve().parent.parent / "prompts"
+
+
+def read_prompt_template(file_name: str) -> str:
+	"""Read prompt template text from repository-level prompts directory."""
+	path = PROMPTS_DIR / file_name
+	try:
+		return path.read_text(encoding="utf-8").strip()
+	except FileNotFoundError as exc:
+		raise RuntimeError(f"Prompt file not found: {path}") from exc
+
+
+def build_user_prompt(diff_text: str) -> str:
+	"""Build user prompt by injecting git diff into template."""
+	template = read_prompt_template("user_prompt.txt")
+	return template.replace("{{DIFF_TEXT}}", diff_text)
 
 
 def normalize_provider_base_url(api_url: str) -> str:
@@ -76,33 +95,17 @@ def generate_commit_message(
 	"""
 	base_url = normalize_provider_base_url(api_url)
 	client = OpenAI(api_key=api_key, base_url=base_url)
+	system_prompt = read_prompt_template("system_prompt.txt")
+	user_prompt = build_user_prompt(diff_text)
 
 	input_items = [
 		{
 			"role": "system",
-			"content": (
-				"You are an assistant that writes Git commit messages using Conventional Commits. "
-				"The commit message must be written in English. "
-				"The first line must strictly follow Conventional Commits format: "
-				"type: subject. "
-				"Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. "
-				"Do NOT include scope in parentheses on the first line. "
-				"If scope is important, put it in the body as: Scope: <area>. "
-				"Return ONLY the commit message as plain text. "
-				"NEVER use markdown code fences (```) or any markdown formatting. "
-				"NEVER wrap output in code blocks or add explanations. "
-				"Do not include any code snippets, diagrams, or code examples. "
-				"Use a concise subject line and optional body lines when helpful. "
-				"Output must be plain text only, suitable for 'git commit -m'."
-			),
+			"content": system_prompt,
 		},
 		{
 			"role": "user",
-			"content": (
-				"Generate a Git commit message from this git diff. "
-				"Follow Conventional Commits and keep it clear and concise.\n\n"
-				f"{diff_text}"
-			),
+			"content": user_prompt,
 		},
 	]
 
