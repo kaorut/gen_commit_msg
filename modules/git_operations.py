@@ -5,6 +5,7 @@ from typing import Sequence
 
 
 GIT_NOT_FOUND_MESSAGE = "git command not found. Please install Git."
+DIFF_UNIFIED_OPTION = "--unified=100"
 
 
 def is_git_repository() -> bool:
@@ -50,12 +51,12 @@ def get_git_diff(
             parts.append(revision_diff)
     else:
         # Staging mode
-        staged_diff = run_git_command(["diff", "--cached"])
+        staged_diff = run_git_command(_build_diff_command("--cached"))
         if staged_diff.strip():
             parts.append(staged_diff)
 
     # Append unstaged changes (in both revision and staging modes)
-    unstaged_diff = run_git_command(["diff"])
+    unstaged_diff = run_git_command(_build_diff_command())
     if unstaged_diff.strip():
         parts.append(unstaged_diff)
 
@@ -102,7 +103,7 @@ def _get_revision_diff(revision_spec: str) -> str:
                 f"Invalid revision format '{revision_spec}'. "
                 "Both REV1 and REV2 must be non-empty in 'REV1...REV2' format."
             )
-        return run_git_command(["diff", f"{rev1}...{rev2}"])
+        return run_git_command(_build_diff_command(f"{rev1}...{rev2}"))
 
     # Check for 2-dot form (REV1..REV2)
     if ".." in spec:
@@ -118,10 +119,15 @@ def _get_revision_diff(revision_spec: str) -> str:
                 f"Invalid revision format '{revision_spec}'. "
                 "Both REV1 and REV2 must be non-empty in 'REV1..REV2' format."
             )
-        return run_git_command(["diff", f"{rev1}..{rev2}"])
+        return run_git_command(_build_diff_command(f"{rev1}..{rev2}"))
 
     # Single revision form (REV)
-    return run_git_command(["diff", spec])
+    return run_git_command(_build_diff_command(spec))
+
+
+def _build_diff_command(*args: str) -> list[str]:
+    """Build git diff command arguments with a fixed unified context."""
+    return ["diff", DIFF_UNIFIED_OPTION, *args]
 
 
 def run_git_command(args: list[str]) -> str:
