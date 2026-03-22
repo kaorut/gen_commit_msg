@@ -18,8 +18,8 @@ def display_generated_message(message: str) -> None:
 def prompt_user_action() -> str:
 	"""Prompt user action and return normalized choice."""
 	while True:
-		choice = input("Choose action [OK/Edit/Cancel]: ").strip().lower()
-		if choice in ("ok", "o"):
+		choice = input("Choose action [OK/Edit/Cancel] (default: OK): ").strip().lower()
+		if not choice or choice in ("ok", "o"):
 			return "ok"
 		if choice in ("edit", "e"):
 			return "edit"
