@@ -17,5 +17,7 @@
       "name": "*",
       "api_key": "YOUR_DEFAULT_GITHUB_API_KEY_OPTIONAL"
     }
-  ]
+  ],
+  "diff_unified_lines": 100,
+  "normalization_mode": "strict"
 }

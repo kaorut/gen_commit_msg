@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Sequence
 
 
-ISSUE_REFERENCE_PATTERN = re.compile(r"(?:[A-Za-z0-9_.-]+)?#\d+")
+ISSUE_REFERENCE_PATTERN = re.compile(r"(?:[A-Za-z0-9_.-]+(?:/[A-Za-z0-9_.-]+)?)?#\d+")
 
 
 @dataclass(frozen=True)
@@ -76,7 +76,7 @@ def _build_parser() -> argparse.ArgumentParser:
         nargs="?",
         default="",
         help=(
-            "Optional issue reference like '#42' or 'otherproject#4242'. "
+            "Optional issue reference like '#42', 'repo#4242', or 'owner/repo#4242'. "
             "Appended to the generated commit subject; not passed to git commit as an argument. "
             "If omitted, issue references in the latest commit subject are reused when possible."
         ),
@@ -89,7 +89,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Optional git revision specification for diff range (follows git diff syntax):\n"
             "  REV1..REV2 - diff from REV1 to REV2 (2-dot form)\n"
             "  REV1...REV2- diff from merge-base to REV2 (3-dot form)\n"
-            "  REV        - diff from REV to working tree (single commit)\n"
+            "  REV        - diff of REV commit (same as REV^..REV)\n"
             "  (omitted)  - staged and unstaged changes (default)\n"
             "  When --amend is present without explicit revision_spec,\n"
             "  this is automatically set to 'HEAD^..HEAD' (current commit)"
@@ -162,7 +162,8 @@ def validate_issue_reference(issue_reference: str) -> str:
 
     Accepted formats:
     - '#42' (bare issue number)
-    - 'project#123' (project-prefixed)
+    - 'repo#123' (repo-prefixed)
+    - 'owner/repo#123' (owner/repo-prefixed)
 
     Args:
             issue_reference: Issue reference string
@@ -178,7 +179,9 @@ def validate_issue_reference(issue_reference: str) -> str:
         return ""
 
     if not ISSUE_REFERENCE_PATTERN.fullmatch(value):
-        raise ValueError("Issue reference must be like '#42' or 'otherproject#4242'")
+        raise ValueError(
+            "Issue reference must be like '#42', 'repo#4242', or 'owner/repo#4242'"
+        )
 
     return value
 

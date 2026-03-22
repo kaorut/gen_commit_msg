@@ -241,7 +241,7 @@ def append_issue_reference_to_subject(message: str, issue_reference: str) -> str
 
     Args:
             message: Commit message
-            issue_reference: Issue reference like '#42' or 'otherproject#4242'
+            issue_reference: Issue reference like '#42', 'repo#4242', or 'owner/repo#4242'
 
     Returns:
             Message with issue reference appended to subject line

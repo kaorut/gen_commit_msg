@@ -5,7 +5,7 @@ from typing import Sequence
 
 
 GIT_NOT_FOUND_MESSAGE = "git command not found. Please install Git."
-DIFF_UNIFIED_OPTION = "--unified=100"
+DEFAULT_DIFF_UNIFIED_LINES = 100
 
 
 def is_git_repository() -> bool:
@@ -15,26 +15,29 @@ def is_git_repository() -> bool:
 
 
 def get_git_diff(
-    revision_spec: str = "", include_unstaged: bool = False
+    revision_spec: str = "",
+    include_unstaged: bool = False,
+    unified_lines: int = DEFAULT_DIFF_UNIFIED_LINES,
 ) -> str:
     """
     Retrieve git diff text for commit message generation.
 
-    Two modes:
-    1. Revision-based mode (when revision_spec is provided):
-       - diff from specified revision(s) + unstaged changes
-    2. Staging mode (when revision_spec is empty):
-       - staged only, or staged + unstaged based on include_unstaged
+     Two modes:
+     1. Revision-based mode (when revision_spec is provided):
+         - diff from specified revision(s)
+     2. Staging mode (when revision_spec is empty):
+         - staged only, or staged + unstaged based on include_unstaged
 
-    Revision Spec Format (follows git diff syntax):
-    - "REV1..REV2"  → diff from REV1 to REV2 (exclusive of REV2) + unstaged
-    - "REV1...REV2" → diff from merge-base(REV1, REV2) to REV2 + unstaged
-    - "REV"         → diff from REV to working tree + unstaged
-    - ""            → staged and optionally unstaged changes
+     Revision Spec Format (follows git diff syntax):
+     - "REV1..REV2"  → diff from REV1 to REV2 (exclusive of REV2)
+     - "REV1...REV2" → diff from merge-base(REV1, REV2) to REV2
+     - "REV"         → diff of commit REV (same as REV^..REV)
+     - ""            → staged and optionally unstaged changes
 
     Args:
             revision_spec: Git revision specification (follows git diff format)
-            include_unstaged: Include unstaged changes when using staging mode
+            include_unstaged: Include unstaged changes in AI input
+            unified_lines: Number of unified context lines for git diff
 
     Returns:
             Diff text for prompt generation
@@ -45,15 +48,18 @@ def get_git_diff(
     parts: list[str] = []
 
     if revision_spec:
-        _append_non_empty_diff(parts, _get_revision_diff(revision_spec))
+        _append_non_empty_diff(parts, _get_revision_diff(revision_spec, unified_lines=unified_lines))
     else:
-        _append_non_empty_diff(parts, run_git_command(_build_diff_command("--cached")))
+        _append_non_empty_diff(
+            parts,
+            run_git_command(_build_diff_command("--cached", unified_lines=unified_lines)),
+        )
 
-    if _should_include_unstaged_diff(
-        revision_spec=revision_spec,
-        include_unstaged=include_unstaged,
-    ):
-        _append_non_empty_diff(parts, run_git_command(_build_diff_command()))
+    if _should_include_unstaged_diff(include_unstaged=include_unstaged):
+        _append_non_empty_diff(
+            parts,
+            run_git_command(_build_diff_command(unified_lines=unified_lines)),
+        )
 
     if not parts:
         return ""
@@ -67,20 +73,19 @@ def _append_non_empty_diff(parts: list[str], diff_text: str) -> None:
         parts.append(diff_text)
 
 
-def _should_include_unstaged_diff(*, revision_spec: str, include_unstaged: bool) -> bool:
+def _should_include_unstaged_diff(*, include_unstaged: bool) -> bool:
     """Return True when unstaged changes should be included in AI input."""
-    # Why not use only include_unstaged: revision mode always appends unstaged by spec.
-    return bool(revision_spec) or include_unstaged
+    return include_unstaged
 
 
-def _get_revision_diff(revision_spec: str) -> str:
+def _get_revision_diff(revision_spec: str, *, unified_lines: int) -> str:
     """
     Generate diff for a git revision specification (follows git diff syntax).
 
     Formats:
     - "REV1..REV2"  → git diff REV1..REV2 (2-dot form)
     - "REV1...REV2" → git diff REV1...REV2 (3-dot form)
-    - "REV"         → git diff REV (single commit)
+    - "REV"         → git diff REV^..REV (single commit)
 
     Args:
             revision_spec: Git revision specification
@@ -100,7 +105,7 @@ def _get_revision_diff(revision_spec: str) -> str:
         spec,
         original_revision_spec=revision_spec,
     )
-    return run_git_command(_build_diff_command(target))
+    return run_git_command(_build_diff_command(target, unified_lines=unified_lines))
 
 
 def _resolve_revision_diff_target(
@@ -127,13 +132,13 @@ def _resolve_revision_diff_target(
         )
         return f"{rev1}..{rev2}"
 
-    # Single revision form (REV)
-    return revision_spec
+    # Single revision form (REV) is interpreted as one-commit range.
+    return f"{revision_spec}^..{revision_spec}"
 
 
-def _build_diff_command(*args: str) -> list[str]:
+def _build_diff_command(*args: str, unified_lines: int) -> list[str]:
     """Build git diff command arguments with a fixed unified context."""
-    return ["diff", DIFF_UNIFIED_OPTION, *args]
+    return ["diff", f"--unified={unified_lines}", *args]
 
 
 def _split_revision_pair(

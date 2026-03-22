@@ -53,6 +53,8 @@ Optional key:
 - `github[]`: resource-specific GitHub tokens used to call GitHub Issues API for issue-context RAG.
 - `github[].name`: resource selector. Supported forms are `owner/repo`, `owner/*`, `owner`, `repo`, and `*`.
 - `github[].api_key`: token for the matched resource.
+- `diff_unified_lines`: unified context lines for `git diff` (default: `100`)
+- `normalization_mode`: commit message normalization mode: `strict` (default) or `loose`
 
 ## How To Run
 
@@ -80,7 +82,7 @@ python ai_commit.py [issue_reference] [revision_spec] [git_commit_options...]
 ### Positional arguments
 
 - `issue_reference` (optional)
-  - Format: `#42` or `otherproject#4242`
+  - Format: `#42`, `repo#4242`, or `owner/repo#4242`
   - Appended to the end of the commit subject line
   - Not passed as an argument to `git commit`
   - If omitted, and the latest commit subject contains issue references, all of them are reused automatically
@@ -90,9 +92,9 @@ python ai_commit.py [issue_reference] [revision_spec] [git_commit_options...]
   - Formats:
     - `REV1..REV2` — 2-dot form: diff from REV1 to REV2
     - `REV1...REV2` — 3-dot form: diff from merge-base(REV1, REV2) to REV2
-    - `REV` — single commit: diff from REV to working tree
+    - `REV` — single commit: diff of `REV` (same as `REV^..REV`)
     - (omitted) — staged and unstaged changes (default behavior)
-  - When `revision_spec` is provided, unstaged changes are **always included** along with the revision diff
+  - `revision_spec` が指定されていても、unstaged changes は `-a/--all` 指定時のみ AI 入力に含まれます
   - Examples: `HEAD^..HEAD`, `main..feature`, `v1.0...v1.1`
 
 ### Option arguments
@@ -144,9 +146,10 @@ If no editor can be resolved, the tool prints an error and exits.
 ## Commit Message Normalization
 
 - Removes Markdown code fences
-- Normalizes output to Conventional Commits style
-- Converts `type(scope): subject` to `type: subject`
-- Moves scope to body as `Scope: <scope>`
+- In `strict` mode, normalizes output to Conventional Commits style
+- In `strict` mode, converts `type(scope): subject` to `type: subject`
+- In `strict` mode, moves scope to body as `Scope: <scope>`
+- In `loose` mode, keeps AI output mostly as-is (after code-fence removal)
 - Appends `issue_reference` to the subject line when provided
 - If `issue_reference` is omitted, reuses all issue references found in the latest commit subject when available
 - When the diff supports it, the body may include both a short summary of what changed and an inferred reason for the change
@@ -162,7 +165,8 @@ When the commit message includes issue references (explicitly passed or inherite
 - The GitHub token is selected in this order: exact `owner/repo`, then `owner/*`, then `owner` or `repo`, then `*`
 - If multiple entries match with the same priority, the first declared entry in `github[]` is used
 
-If the API call fails, the issue context is skipped and commit generation continues.
+If all API calls for resolved issue references fail, the tool prints a warning to stderr,
+then skips issue context and continues commit generation.
 
 ## Improving Why Inference
 
@@ -200,7 +204,7 @@ ai_commit.bat --help
 - No diff is available for message generation
   - `No changes detected in git diff.`
 - Invalid issue reference format
-  - `Issue reference must be like '#42' or 'otherproject#4242'`
+  - `Issue reference must be like '#42', 'repo#4242', or 'owner/repo#4242'`
 - Unsupported non-option argument was provided
   - `Non-option arguments are not supported: ...`
 

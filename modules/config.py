@@ -3,7 +3,7 @@
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Mapping
+from typing import Any, Literal, Mapping
 
 
 @dataclass(frozen=True)
@@ -21,6 +21,8 @@ class AppConfig:
 
     openai: OpenAIConfig
     github_resources: tuple["GitHubResource", ...]
+    diff_unified_lines: int
+    normalization_mode: Literal["strict", "loose"]
 
 
 @dataclass(frozen=True)
@@ -146,6 +148,36 @@ def load_api_config(base_dir: Path) -> AppConfig:
     return normalized
 
 
+def _read_diff_unified_lines(config: Mapping[str, Any], *, config_path: Path) -> int:
+    """Read optional diff unified lines setting."""
+    value = config.get("diff_unified_lines", 100)
+    try:
+        lines = int(value)
+    except (TypeError, ValueError) as exc:
+        raise ValueError(
+            f"Invalid value in {config_path}: diff_unified_lines must be a positive integer"
+        ) from exc
+
+    if lines <= 0:
+        raise ValueError(
+            f"Invalid value in {config_path}: diff_unified_lines must be a positive integer"
+        )
+    return lines
+
+
+def _read_normalization_mode(
+    config: Mapping[str, Any], *, config_path: Path
+) -> Literal["strict", "loose"]:
+    """Read optional commit message normalization mode."""
+    mode = str(config.get("normalization_mode", "strict")).strip().lower()
+    if mode in ("strict", "loose"):
+        return mode
+
+    raise ValueError(
+        f"Invalid value in {config_path}: normalization_mode must be 'strict' or 'loose'"
+    )
+
+
 def _normalize_api_config(config: Mapping[str, Any], *, config_path: Path) -> AppConfig:
     """Normalize config into runtime keys used by the application."""
     if "openai" in config or "github" in config:
@@ -179,6 +211,8 @@ def _normalize_nested_api_config(
             config.get("github", {}),
             config_path=config_path,
         ),
+        diff_unified_lines=_read_diff_unified_lines(config, config_path=config_path),
+        normalization_mode=_read_normalization_mode(config, config_path=config_path),
     )
 
 
@@ -204,4 +238,6 @@ def _normalize_legacy_flat_config(
             if str(config.get("github_token") or "").strip()
             else ()
         ),
+        diff_unified_lines=_read_diff_unified_lines(config, config_path=config_path),
+        normalization_mode=_read_normalization_mode(config, config_path=config_path),
     )

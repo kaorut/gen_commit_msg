@@ -4,7 +4,7 @@ import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Sequence
+from typing import Literal, Sequence
 
 from modules.ai_client import generate_commit_message
 from modules.cli import ParsedOptions, find_issue_references, parse_arguments
@@ -27,6 +27,10 @@ from modules.message_processor import (
 
 ERROR_NOT_GIT_REPOSITORY = "Current directory is not a Git repository."
 ERROR_NO_DIFF = "No changes detected in git diff."
+WARNING_ISSUE_CONTEXT_UNAVAILABLE = (
+    "Warning: GitHub issue context could not be loaded for the given issue references. "
+    "Continuing without issue RAG context."
+)
 
 
 @dataclass(frozen=True)
@@ -37,6 +41,7 @@ class PreparedCommitMessage:
     diff_text: str
     issue_reference: str
     issue_context: str
+    normalization_mode: Literal["strict", "loose"]
 
 
 def main() -> int:
@@ -71,6 +76,11 @@ def write_error(message: str) -> None:
     sys.stderr.write(message.rstrip() + "\n")
 
 
+def write_warning(message: str) -> None:
+    """Write one warning line to stderr."""
+    sys.stderr.write(message.rstrip() + "\n")
+
+
 def run_commit_flow(base_dir: Path, options: ParsedOptions) -> int:
     """Build commit message and run interactive commit flow."""
     prepared = prepare_commit_message(base_dir, options)
@@ -79,6 +89,7 @@ def run_commit_flow(base_dir: Path, options: ParsedOptions) -> int:
         diff_text=prepared.diff_text,
         issue_context=prepared.issue_context,
         issue_reference=prepared.issue_reference,
+        normalization_mode=prepared.normalization_mode,
     )
     return run_interactive_commit_flow(message, options.commit_options)
 
@@ -92,6 +103,7 @@ def prepare_commit_message(
     diff_text = get_git_diff(
         revision_spec=options.revision_spec,
         include_unstaged=options.include_unstaged_for_diff,
+        unified_lines=config.diff_unified_lines,
     )
     if not diff_text.strip():
         raise RuntimeError(ERROR_NO_DIFF)
@@ -101,11 +113,15 @@ def prepare_commit_message(
         resolved_issue_reference,
         github_resources=config.github_resources,
     )
+    if resolved_issue_reference and not issue_context:
+        write_warning(WARNING_ISSUE_CONTEXT_UNAVAILABLE)
+
     return PreparedCommitMessage(
         openai_config=config.openai,
         diff_text=diff_text,
         issue_reference=resolved_issue_reference,
         issue_context=issue_context,
+        normalization_mode=config.normalization_mode,
     )
 
 
@@ -141,6 +157,7 @@ def build_commit_message(
     diff_text: str,
     issue_context: str,
     issue_reference: str,
+    normalization_mode: Literal["strict", "loose"],
 ) -> str:
     """Generate and normalize commit message from diff text."""
     message = generate_commit_message(
@@ -148,14 +165,24 @@ def build_commit_message(
         diff_text=diff_text,
         issue_context=issue_context,
     )
-    return normalize_generated_message(message, issue_reference=issue_reference)
+    return normalize_generated_message(
+        message,
+        issue_reference=issue_reference,
+        normalization_mode=normalization_mode,
+    )
 
 
-def normalize_generated_message(message: str, *, issue_reference: str) -> str:
+def normalize_generated_message(
+    message: str,
+    *,
+    issue_reference: str,
+    normalization_mode: Literal["strict", "loose"],
+) -> str:
     """Normalize raw model output into the final commit message text."""
     normalized = strip_surrounding_code_fence(message)
     normalized = remove_all_code_fences(normalized)
-    normalized = normalize_conventional_commit_message(normalized)
+    if normalization_mode == "strict":
+        normalized = normalize_conventional_commit_message(normalized)
     return append_issue_reference_to_subject(normalized, issue_reference)
 
 
