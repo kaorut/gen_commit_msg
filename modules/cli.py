@@ -90,7 +90,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "  REV1..REV2 - diff from REV1 to REV2 (2-dot form)\n"
             "  REV1...REV2- diff from merge-base to REV2 (3-dot form)\n"
             "  REV        - diff of REV commit (same as REV^..REV)\n"
-            "  (omitted)  - staged and unstaged changes (default)\n"
+            "  (omitted)  - staged changes only by default\n"
             "  When --amend is present without explicit revision_spec,\n"
             "  this is automatically set to 'HEAD^..HEAD' (current commit)"
         ),

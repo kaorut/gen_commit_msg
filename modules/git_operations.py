@@ -261,7 +261,7 @@ def _extract_ssh_remote_path(url: str) -> str:
 
 def _extract_http_remote_path(url: str) -> str:
     """Extract path from HTTP(S) remote URL."""
-    parts = url.split("/", 3)
+    parts = url.split("/", 4)
     if len(parts) < 5:
         return ""
     return "/".join(parts[3:])

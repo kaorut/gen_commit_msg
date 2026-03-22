@@ -93,7 +93,7 @@ python ai_commit.py [issue_reference] [revision_spec] [git_commit_options...]
     - `REV1..REV2` — 2-dot form: diff from REV1 to REV2
     - `REV1...REV2` — 3-dot form: diff from merge-base(REV1, REV2) to REV2
     - `REV` — single commit: diff of `REV` (same as `REV^..REV`)
-    - (omitted) — staged and unstaged changes (default behavior)
+    - (omitted) — staged changes only (default behavior)
   - `revision_spec` が指定されていても、unstaged changes は `-a/--all` 指定時のみ AI 入力に含まれます
   - Examples: `HEAD^..HEAD`, `main..feature`, `v1.0...v1.1`
 
