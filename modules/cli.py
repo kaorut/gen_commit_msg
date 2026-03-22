@@ -2,13 +2,23 @@
 
 import argparse
 import re
+from dataclasses import dataclass
 from typing import Sequence
 
 
 ISSUE_REFERENCE_PATTERN = re.compile(r"(?:[A-Za-z0-9_.-]+)?#\d+")
 
 
-def parse_arguments(args: Sequence[str]) -> argparse.Namespace:
+@dataclass(frozen=True)
+class ParsedOptions:
+    """Parsed command-line options for commit generation flow."""
+
+    issue_reference: str
+    commit_options: list[str]
+    include_unstaged_for_diff: bool
+
+
+def parse_arguments(args: Sequence[str]) -> ParsedOptions:
     """
     Parse command-line arguments.
 
@@ -21,6 +31,22 @@ def parse_arguments(args: Sequence[str]) -> argparse.Namespace:
     Raises:
             ValueError: If issue reference format is invalid
     """
+    parser = _build_parser()
+
+    # Keep argparse native help behavior.
+    if any(token in ("-h", "--help") for token in args):
+        parser.parse_args(args)
+
+    issue_reference, commit_options = _parse_tokens(args)
+    return ParsedOptions(
+        issue_reference=issue_reference,
+        commit_options=commit_options,
+        include_unstaged_for_diff=has_all_option(commit_options),
+    )
+
+
+def _build_parser() -> argparse.ArgumentParser:
+    """Create parser used only for help/usage output."""
     parser = argparse.ArgumentParser(
         description=(
             "Generate a commit message from git diff using AI and run git commit."
@@ -43,27 +69,26 @@ def parse_arguments(args: Sequence[str]) -> argparse.Namespace:
             "Appended to the generated commit subject; not passed to git commit as an argument."
         ),
     )
-    # argparse should keep handling built-in help behavior.
-    if any(token in ("-h", "--help") for token in args):
-        parser.parse_args(args)
+    return parser
 
-    parsed_args = argparse.Namespace()
-    parsed_args.issue_reference = ""
-    parsed_args.commit_options = []
+
+def _parse_tokens(args: Sequence[str]) -> tuple[str, list[str]]:
+    """Parse tokens into issue reference and git commit options."""
+    issue_reference = ""
+    commit_options: list[str] = []
 
     for token in args:
         if token.startswith("-"):
-            parsed_args.commit_options.append(token)
+            commit_options.append(token)
             continue
 
-        if not parsed_args.issue_reference and ISSUE_REFERENCE_PATTERN.fullmatch(token):
-            parsed_args.issue_reference = validate_issue_reference(token)
+        if not issue_reference and ISSUE_REFERENCE_PATTERN.fullmatch(token):
+            issue_reference = validate_issue_reference(token)
             continue
 
         raise ValueError(f"Non-option arguments are not supported: {token}")
 
-    parsed_args.include_unstaged_for_diff = has_all_option(parsed_args.commit_options)
-    return parsed_args
+    return issue_reference, commit_options
 
 
 def has_all_option(commit_options: Sequence[str]) -> bool:
