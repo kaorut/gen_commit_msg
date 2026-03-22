@@ -58,6 +58,7 @@ python ai_commit.py [issue_reference] [revision_spec] [git_commit_options...]
   - Format: `#42` or `otherproject#4242`
   - Appended to the end of the commit subject line
   - Not passed as an argument to `git commit`
+  - If omitted, and the latest commit subject contains issue references, all of them are reused automatically
 
 - `revision_spec` (optional)
   - Specifies the git revision(s) for the diff (follows git diff syntax)
@@ -122,6 +123,7 @@ If no editor can be resolved, the tool prints an error and exits.
 - Converts `type(scope): subject` to `type: subject`
 - Moves scope to body as `Scope: <scope>`
 - Appends `issue_reference` to the subject line when provided
+- If `issue_reference` is omitted, reuses all issue references found in the latest commit subject when available
 - When the diff supports it, the body may include both a short summary of what changed and an inferred reason for the change
 - If the reason cannot be inferred with reasonable confidence from the diff, the tool prefers omission over speculation
 

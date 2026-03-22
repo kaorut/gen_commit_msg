@@ -146,6 +146,19 @@ def run_git_command(args: list[str]) -> str:
     return result.stdout
 
 
+def get_last_commit_subject() -> str:
+    """
+    Return the subject line of the latest commit.
+
+    Returns empty string when no commit exists yet.
+    """
+    result = _run_git(["log", "-1", "--pretty=%s"], capture_output=True)
+    if result.returncode != 0:
+        return ""
+
+    return result.stdout.strip()
+
+
 def commit_with_message(message: str, commit_options: Sequence[str]) -> None:
     """
     Run git commit with the provided message and pass-through options.

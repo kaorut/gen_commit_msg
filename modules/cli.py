@@ -63,6 +63,7 @@ def _build_parser() -> argparse.ArgumentParser:
             "Behavior:\n"
             "- Tokens starting with '-' or '--' are passed through to git commit.\n"
             "- Non-option arguments are not passed through to git commit.\n"
+            "- If issue_reference is omitted, the latest commit subject is checked for issue references.\n"
             "- If -a or --all is present, unstaged changes are included in the diff for AI generation.\n"
             "- Without -a/--all, only staged changes are used for AI generation.\n"
             "- If --amend is present and no revision_spec is explicitly provided,\n"
@@ -76,7 +77,8 @@ def _build_parser() -> argparse.ArgumentParser:
         default="",
         help=(
             "Optional issue reference like '#42' or 'otherproject#4242'. "
-            "Appended to the generated commit subject; not passed to git commit as an argument."
+            "Appended to the generated commit subject; not passed to git commit as an argument. "
+            "If omitted, issue references in the latest commit subject are reused when possible."
         ),
     )
     parser.add_argument(
@@ -176,3 +178,26 @@ def validate_issue_reference(issue_reference: str) -> str:
         raise ValueError("Issue reference must be like '#42' or 'otherproject#4242'")
 
     return value
+
+
+def find_issue_references(text: str) -> str:
+    """
+    Extract all valid issue references from arbitrary text.
+
+    Args:
+            text: Source text to inspect
+
+    Returns:
+            Space-separated issue references, preserving first-seen order
+    """
+    matches = ISSUE_REFERENCE_PATTERN.findall(text)
+    if not matches:
+        return ""
+
+    unique_references: list[str] = []
+    for match in matches:
+        issue_reference = validate_issue_reference(match)
+        if issue_reference not in unique_references:
+            unique_references.append(issue_reference)
+
+    return " ".join(unique_references)

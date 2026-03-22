@@ -5,9 +5,9 @@ import sys
 from pathlib import Path
 
 from modules.ai_client import generate_commit_message
-from modules.cli import parse_arguments
+from modules.cli import find_issue_references, parse_arguments
 from modules.config import load_api_config
-from modules.git_operations import get_git_diff, is_git_repository
+from modules.git_operations import get_git_diff, get_last_commit_subject, is_git_repository
 from modules.interactive_flow import run_interactive_commit_flow
 from modules.message_processor import (
     append_issue_reference_to_subject,
@@ -38,6 +38,10 @@ def main() -> int:
             include_unstaged=options.include_unstaged_for_diff,
         )
 
+        issue_reference = options.issue_reference or find_issue_references(
+            get_last_commit_subject()
+        )
+
         if not diff_text.strip():
             sys.stderr.write("No changes detected in git diff.\n")
             return 1
@@ -47,7 +51,7 @@ def main() -> int:
             model=config["model"],
             api_key=config["api_key"],
             diff_text=diff_text,
-            issue_reference=options.issue_reference,
+            issue_reference=issue_reference,
         )
 
         return run_interactive_commit_flow(message, options.commit_options)
