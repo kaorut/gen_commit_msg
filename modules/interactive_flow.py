@@ -11,11 +11,8 @@ from modules.git_operations import commit_with_message, run_git_command
 
 def display_generated_message(message: str) -> None:
 	"""Display generated commit message to console."""
-	print("\n" + "=" * 60)
-	print("Generated commit message:")
-	print("=" * 60)
+	print()
 	print(message)
-	print("=" * 60)
 
 
 def prompt_user_action() -> str:
