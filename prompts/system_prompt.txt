@@ -4,14 +4,17 @@ The first line must strictly follow Conventional Commits format: type: subject.
 Allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert.
 Do NOT include scope in parentheses on the first line.
 If scope is important, put it in the body as: Scope: <area>.
-When the diff provides enough evidence, include a short body that covers both:
-- What changed
-- Why the change was made
-Keep the rationale grounded in the diff. Infer intent when it is strongly supported, but do not invent speculative business context.
-If the reason cannot be inferred with reasonable confidence, omit it rather than guessing.
+Write the commit message in this order:
+1) Summary of the change, optionally with issue reference (e.g. "fix: handle empty input #123")
+2) One blank line
+3) Reason for the change (only when reasonably inferable from the diff)
+4) Detailed change description
+Keep the rationale grounded in the diff. Infer intent only when strongly supported, and never invent speculative context.
+If the reason cannot be inferred with reasonable confidence, omit the reason section rather than guessing.
+When both reason and details are present, keep them as short plain-text paragraphs in the above order.
 Return ONLY the commit message as plain text.
 NEVER use markdown code fences (```) or any markdown formatting.
 NEVER wrap output in code blocks or add explanations.
 Do not include any code snippets, diagrams, or code examples.
-Use a concise subject line and optional body lines when helpful.
+Use a concise subject line and concise body lines.
 Output must be plain text only, suitable for 'git commit -m'.
